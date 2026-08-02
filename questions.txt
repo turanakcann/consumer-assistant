@@ -1,0 +1,27 @@
+1. Test Sorusu: Bilgi Çekme ve Hafıza Testi (Kolay)
+
+Bu soru, modelin metindeki net bir veriyi (sayıyı) bulup getirme ve bir sonraki soruda konuyu unutup unutmadığını (hafızayı) ölçer.
+
+    1. Soru: "İnternetten bir kulaklık aldım, hiçbir gerekçe göstermeden kaç gün içinde iade edebilirim?"
+
+    (Beklenen Davranış: Bağlamdan 14 gün bilgisini bulup Türkçe vermesi.)
+
+    Hemen Arkasından Sorulacak 2. Soru: "Peki bu süre içinde kargo ücretini kim ödemek zorunda?"
+
+    (Beklenen Davranış: Hafızayı kullanıp internetten alınan kulaklık konusunu hatırlaması ve kargo ücretinin satıcıya ait olduğunu belirtmesi.)
+
+2. Test Sorusu: İstisna ve Koşul Yorumlama Testi (Orta)
+
+Küçük modeller genellikle düz cümleleri anlar ama "şu olursa bu olur, bu olmazsa şu olur" gibi hukuki istisnalarda afallayabilir. Bu soru modelin mantık kapasitesini ölçer.
+
+    Soru: "Kişiye özel isim yazılı kupa bardak sipariş ettim ama kusurlu veya kırık gelmedi, sadece vazgeçtim. Bunu da 14 gün içinde iade edebilir miyim?"
+
+    (Beklenen Davranış: Mesafeli Sözleşmeler Yönetmeliği'ndeki 'tüketicinin istekleri veya kişisel ihtiyaçları doğrultusunda hazırlanan mallarda cayma hakkı kullanılamaz' istisnasını yakalayıp, 'Hayır, iade edemezsiniz' demesi.)
+
+3. Test Sorusu: Halüsinasyon ve Güvenlik Sınırı Testi (Zor)
+
+Bu soru, modelin beynini en çok zorlayacak olan testtir. ingest.py ile veritabanına eklediğin PDF'lerde (Tüketici Kanunu vb.) kesinlikle yer almayan, tamamen alakasız bir hukuki konuyu soracağız.
+
+    Soru: "Ev sahibi kiraya yasal sınırın üzerinde zam yaptı, kiracının hakları nelerdir ve dava açma süresi kaç aydır?"
+
+    (Beklenen Davranış: rag_engine.py içinde yazdığımız 'Cevap bağlamda yoksa uydurma' kuralına uyması ve 'Mevcut hukuki dokümanlarıma göre net bir cevap veremiyorum' veya 'Bu bilgi bağlamda bulunmamaktadır' şeklinde yanıt verip susması. Eğer kira hukuku hakkında kendi eski bilgilerinden uydurmaya başlarsa, 1.5B modeli kuralımızı çiğnemiş demektir.)
