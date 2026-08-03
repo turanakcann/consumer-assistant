@@ -8,11 +8,24 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_classic.retrievers.multi_query import MultiQueryRetriever
 from langchain_classic.retrievers import ContextualCompressionRetriever
 from langchain_classic.retrievers.document_compressors import EmbeddingsFilter
+from typing import List
 from config import CHROMA_DB_DIR, LLM_MODEL, GROQ_API_KEY
+
+# Google'ın boş string ("") alıp çökmesini engelleyen güvenlik kalkanı
+class SafeGoogleEmbeddings(GoogleGenerativeAIEmbeddings):
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        # Eğer Llama boş bir satır ürettiyse onu "tüketici" kelimesiyle değiştir
+        safe_texts = [t if t and t.strip() else "tüketici" for t in texts]
+        return super().embed_documents(safe_texts)
+
+    def embed_query(self, text: str) -> List[float]:
+        # Tekil sorgularda boşluk gelirse çökmeyi engelle
+        safe_text = text if text and text.strip() else "tüketici"
+        return super().embed_query(safe_text)
 
 def get_rag_chain():
     # 1. VERİTABANI BAĞLANTISI (Google Embeddings ile)
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
+    embeddings = SafeGoogleEmbeddings(model="models/text-embedding-001")
     vector_database = Chroma(
         persist_directory=CHROMA_DB_DIR,
         embedding_function=embeddings
