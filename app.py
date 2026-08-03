@@ -7,168 +7,185 @@ from rag_engine import get_rag_chain
 st.set_page_config(
     page_title="Tüketici Hakları Asistanı",
     page_icon="⚖️",
-    layout="centered",
-    initial_sidebar_state="expanded"
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
 
-# --- CSS İLE GÖRSEL ÖZELLEŞTİRME (resim.png Tasarımı) ---
-# Streamlit'in varsayılan arayüzünü ezip senin istediğin soft ve turuncu/beyaz temaya çeviriyoruz.
+# --- CSS İLE KARANLIK TEMA VE DÜZEN ÖZELLEŞTİRME ---
 st.markdown("""
 <style>
-    /* Soft Gri Arka Plan */
+    /* 1. Tam Ekran Karanlık Degrade Arka Plan */
     .stApp {
-        background-color: #f7f7f8;
+        background: linear-gradient(180deg, #0a1128 0%, #121c3a 100%);
+        color: #e0e6ed;
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
     
-    /* Yan Panel (Sidebar) Beyazlaştırma ve Çizgi Rengi */
-    [data-testid="stSidebar"] {
-        background-color: #ffffff;
-        border-right: 1px solid #eaeaea;
+    /* 2. Sol Menüyü ve Üst Banner'ı Gizleme */
+    [data-testid="collapsedControl"], [data-testid="stSidebar"], [data-testid="stHeader"] {
+        display: none !important;
     }
 
-    /* Tüm Mesaj Balonları İçin Ortak Kenar Yumuşatma */
+    /* 3. Genel Mesaj Balonu Ayarları */
     [data-testid="stChatMessage"] {
         padding: 15px;
         margin-bottom: 15px;
-        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.03);
+        color: #e0e6ed !important;
     }
 
-    /* KULLANICI Mesaj Balonu (Turuncu) - avatar'ında 'user' olanı hedefler */
+    /* 4. KULLANICI Mesaj Balonu */
     [data-testid="stChatMessage"]:has([data-testid="stIcon-user"]), 
     [data-testid="stChatMessage"]:has(img[alt="user"]) {
-        background-color: #ff6200 !important;
+        background-color: rgba(30, 58, 138, 0.4) !important;
         border-radius: 20px 20px 0px 20px !important;
-        color: white !important;
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        backdrop-filter: blur(10px);
+    }
+
+    /* 5. ASİSTAN Mesaj Balonu */
+    [data-testid="stChatMessage"]:has(img[alt="assistant"]) {
+        background-color: rgba(17, 24, 39, 0.6) !important;
+        border-radius: 20px 20px 20px 0px !important;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
     }
     
-    /* Kullanıcı mesajı içindeki yazıların beyaz kalmasını sağlama */
-    [data-testid="stChatMessage"]:has([data-testid="stIcon-user"]) p,
-    [data-testid="stChatMessage"]:has(img[alt="user"]) p {
+    /* 6. ALT KISIM (INPUT ARKASI) ŞEFFAFLIK */
+    [data-testid="stBottom"] {
+        background: transparent !important;
+    }
+    [data-testid="stBottom"] > div {
+        background: transparent !important;
+    }
+    
+    /* Input Alanı */
+    .stChatInputContainer {
+        padding-bottom: 20px !important;
+    }
+    .stChatInputContainer textarea {
+        background-color: #111827 !important;
+        color: white !important;
+        border: 1px solid #374151 !important;
+        border-radius: 15px !important;
+    }
+    
+    /* Buton Tasarımları (Yazıların sığması için genişletildi) */
+    .stButton button {
+        background-color: rgba(59, 130, 246, 0.2) !important;
+        border: 1px solid rgba(59, 130, 246, 0.5) !important;
+        color: #60a5fa !important;
+        border-radius: 10px !important;
+        transition: all 0.3s ease;
+        padding: 6px 20px !important;
+        white-space: nowrap !important;
+    }
+    .stButton button:hover {
+        background-color: rgba(59, 130, 246, 0.4) !important;
+        border-color: #3b82f6 !important;
         color: white !important;
     }
 
-    /* ASİSTAN Mesaj Balonu (Beyaz) - avatar'ında 'assistant' olanı hedefler */
-    [data-testid="stChatMessage"]:has([data-testid="stIcon-assistant"]),
-    [data-testid="stChatMessage"]:has(img[alt="assistant"]) {
-        background-color: #ffffff !important;
-        border-radius: 20px 20px 20px 0px !important;
-        border: 1px solid #f0f0f0;
-        color: #333333 !important;
+    /* Ana içeriği ortalama */
+    .block-container {
+        max-width: 800px !important;
+        padding-top: 2rem !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# --- ARKA PLAN MOTORUNU YÜKLEME (Cache) ---
+# --- POP-UP (MODAL) KILAVUZ EKRANI ---
+@st.dialog("📖 Tüketici Hakları Asistanı Kılavuzu")
+def show_guide():
+    st.markdown("""
+    ### 🚀 Proje Hakkında
+    Bu asistan, **6502 sayılı Tüketici'nin Korunması Hakkında Kanun** ve ilgili 28 yönetmeliği temel alarak geliştirilmiş bir yapay zeka (RAG) uygulamasıdır.
+    
+    #### 🧠 Sistem Mimarisi
+    * **Google Embeddings:** `gemini-embedding-001` modeli ile hukuki metinlerin anlamsal eşleştirmesi.
+    * **Llama 3.3 (Groq):** Hızlı ve yüksek doğruluklu nihai cevap üretimi.
+    * **Sıfır Halüsinasyon:** Sistem sadece verilen hukuki dökümanlara bağlı kalır, şahsi yorum yapmaz.
+    
+    #### 💡 Nasıl Kullanılır?
+    Aşağıdaki gibi gündelik dille sorular sorabilirsiniz:
+    * *"İnternetten aldığım tişörtü kaç gün içinde iade edebilirim?"*
+    * *"Bozulan telefonum 25 gündür serviste, haklarım nelerdir?"*
+    * *"Emlakçı benden ev alımında %6 komisyon istiyor, bu yasal mı?"*
+    """)
+    if st.button("Kapat"):
+        st.rerun()
+
+# --- ARKA PLAN MOTORU ---
 @st.cache_resource
 def load_rag_engine():
     return get_rag_chain()
 
 rag_chain = load_rag_engine()
 
-# --- MENÜ VE ÇOKLU SAYFA (YÖNLENDİRME) ---
-with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/6062/6062646.png", width=80)
-    st.title("⚖️ Hukuk Asistanı")
-    st.markdown("---")
-    
-    # Sayfa Seçimi (Radio Button ile Yönlendirme)
-    sayfa = st.radio(
-        "Menü",
-        ["💬 Sohbet Asistanı", "ℹ️ Proje Hakkında"]
-    )
-    
-    st.markdown("---")
-    
-    # Sohbeti Temizle Butonu
-    if st.button("🗑️ Sohbeti Temizle"):
-        st.session_state.messages = [
-            {"role": "assistant", "content": "Merhaba! Ben yapay zeka destekli Tüketici Hakları Asistanıyım. İadeler, ayıplı mallar veya sözleşmelerle ilgili sorularınızı sorabilirsiniz."}
-        ]
-        st.session_state.chat_history = []
-        st.rerun()
-
-# --- HAFIZA VE SOHBET GEÇMİŞİ YÖNETİMİ ---
+# --- HAFIZA YÖNETİMİ ---
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = [] 
 
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "assistant", "content": "Merhaba! Ben yapay zeka destekli Tüketici Hakları Asistanıyım. İadeler, ayıplı mallar veya sözleşmelerle ilgili sorularınızı sorabilirsiniz."}
+        {"role": "assistant", "content": "Merhaba! Ben yapay zeka destekli Tüketici Hakları Asistanıyım. Sorularınızı dinliyorum."}
     ]
 
-# ==========================================
-# SAYFA 1: SOHBET ASİSTANI (ANA EKRAN)
-# ==========================================
-if sayfa == "💬 Sohbet Asistanı":
-    st.title("⚖️ Tüketici Hakları Asistanı")
+# --- ÜST BAR (BUTONLAR İÇİN GENİŞLETİLMİŞ KOLONLAR) ---
+top_col1, top_col2, top_col3 = st.columns([7, 2.2, 2.2]) 
+with top_col2:
+    if st.button("📖 Kılavuz", use_container_width=True):
+        show_guide()
 
-    # Geçmiş mesajları ekrana bas (Rolleri CSS'in anlaması için açıkça belirtiyoruz)
-    for message in st.session_state.messages:
-        avatar_str = "user" if message["role"] == "user" else "assistant"
-        with st.chat_message(message["role"], avatar=avatar_str):
-            st.markdown(message["content"])
+with top_col3:
+    if st.button("🗑️ Temizle", use_container_width=True):
+        st.session_state.messages = [
+            {"role": "assistant", "content": "Sohbet temizlendi. Sizi dinliyorum."}
+        ]
+        st.session_state.chat_history = []
+        st.rerun()
 
-    # --- KULLANICI GİRİŞİ VE CEVAP ÜRETİMİ ---
-    if prompt := st.chat_input("Örn: İnternetten aldığım ürünü kaç gün içinde iade edebilirim?"):
-        
-        # 1. Kullanıcının mesajını ekrana yaz
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user", avatar="user"):
-            st.markdown(prompt)
+# --- ANA EKRAN BAŞLIKLARI ---
+st.markdown("<h2 style='text-align: center; color: #ffffff;'>⚖️ Hukuk Asistanı</h2>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #9ca3af;'>Tüketici mevzuatıyla ilgili sorularınızı sorabilirsiniz.</p>", unsafe_allow_html=True)
+st.write("") 
 
-        # 2. Asistanın cevabını oluştur
-        with st.chat_message("assistant", avatar="assistant"):
-            with st.spinner("Mevzuat taranıyor ve analiz ediliyor..."):
-                start_time = time.time()
+# --- ASİSTAN AVATARI ---
+assistant_avatar = "https://cdn-icons-png.flaticon.com/512/11696/11696071.png"
+
+# Geçmiş mesajları ekrana bas
+for message in st.session_state.messages:
+    avatar_url = "user" if message["role"] == "user" else assistant_avatar
+    with st.chat_message(message["role"], avatar=avatar_url):
+        st.markdown(message["content"])
+
+# --- KULLANICI GİRİŞİ VE CEVAP ÜRETİMİ ---
+if prompt := st.chat_input("Ask me anything..."):
+    
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user", avatar="user"):
+        st.markdown(prompt)
+
+    with st.chat_message("assistant", avatar=assistant_avatar):
+        with st.spinner("Taranıyor..."):
+            start_time = time.time()
+            
+            try:
+                response = rag_chain.invoke({
+                    "input": prompt,
+                    "chat_history": st.session_state.chat_history
+                })
                 
-                try:
-                    # Backend (RAG) motoruna soruyu ve hafızayı gönder
-                    response = rag_chain.invoke({
-                        "input": prompt,
-                        "chat_history": st.session_state.chat_history
-                    })
-                    
-                    answer = response["answer"]
-                    process_time = round(time.time() - start_time, 2)
-                    
-                    # Cevabı ve süreyi ekrana bas
-                    st.markdown(answer)
-                    st.caption(f"⏱️ İşlem Süresi: {process_time} saniye")
-                    
-                    # 3. Hafızayı güncelle
-                    st.session_state.messages.append({"role": "assistant", "content": answer})
-                    st.session_state.chat_history.extend([
-                        HumanMessage(content=prompt),
-                        AIMessage(content=answer)
-                    ])
-                    
-                except Exception as e:
-                    st.error(f"Bir hata oluştu: {str(e)}")
-
-# ==========================================
-# SAYFA 2: PROJE HAKKINDA
-# ==========================================
-elif sayfa == "ℹ️ Proje Hakkında":
-    st.title("ℹ️ Proje Hakkında")
-    st.markdown("---")
-    
-    st.markdown("""
-    ### 🚀 Tüketici Hakları Yapay Zeka Asistanı
-    Bu proje, karmaşık hukuki metinleri, kanunları ve yönetmelikleri vatandaşlar için anlaşılır ve erişilebilir kılmak amacıyla geliştirilmiş **RAG (Retrieval-Augmented Generation)** tabanlı akıllı bir sohbet asistanıdır.
-    
-    Projenin geliştirilme sürecinde modern yazılım mühendisliği prensipleri, gelişmiş kalite güvence (QA) platform testleri ve konteyner orkestrasyonu (Docker) kullanılmıştır.
-    
-    #### 🧠 Sistem Mimarisi ve Zeka
-    * **Vektör Veritabanı:** Google'ın en güncel anlamsal eşleştirme modeli (`text-embedding-004` / `gemini-embedding-001`) ile ChromaDB üzerinde vektörleştirilmiş 28 farklı güncel tüketici mevzuatı.
-    * **Hibrit LLM Altyapısı:** Kullanıcı sorgularını analiz etmek (Multi-Query) ve hukuki bağlamı saniyeler içinde taramak için Groq (Llama 3.3) ve Gemini API'lerinin birleşik gücü kullanılmıştır.
-    * **Sıfır Halüsinasyon (Zero-Hallucination):** Sisteme gömülü *Hukuki Yorumlama Sözlüğü* sayesinde asistan; ticari davalar, şahıs arası anlaşmazlıklar veya kapsam dışı sorularda uydurma cevaplar vermek yerine sınırlarını bilerek hareket eder.
-    
-    #### 🛠️ Kullanılan Teknolojiler
-    * **Arayüz (Frontend):** Streamlit
-    * **Arka Plan (Backend):** Python, LangChain, Pytest
-    * **Dağıtım (Deployment):** Docker & Docker-Compose
-    
-    ---
-    *Bu uygulama, yapay zeka teknolojileri ile Tüketici Hukukunu birleştirerek hak arama süreçlerini dijitalleştirmeyi ve kolaylaştırmayı amaçlayan inovatif bir mühendislik çalışmasıdır.*
-    """)
+                answer = response["answer"]
+                process_time = round(time.time() - start_time, 2)
+                
+                st.markdown(answer)
+                st.caption(f"⏱️ İşlem Süresi: {process_time} sn")
+                
+                st.session_state.messages.append({"role": "assistant", "content": answer})
+                st.session_state.chat_history.extend([
+                    HumanMessage(content=prompt),
+                    AIMessage(content=answer)
+                ])
+                
+            except Exception as e:
+                st.error(f"Bir hata oluştu: {str(e)}")
