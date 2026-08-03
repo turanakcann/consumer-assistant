@@ -15,6 +15,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Projenin geri kalan tüm dosyalarını kopyalıyoruz
 COPY . .
+RUN pip install --upgrade pip
 
 # Streamlit'in varsayılan portunu dışa açıyoruz
 EXPOSE 8501

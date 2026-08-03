@@ -13,4 +13,5 @@ services:
       - ./chroma_db:/app/chroma_db
       # İsteğe bağlı: Dökümanları canlı güncellemek istersen docs klasörünü de bağlayabilirsin
       - ./docs:/app/docs
+      - .:/app
     restart: unless-stopped
