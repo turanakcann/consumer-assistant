@@ -50,10 +50,15 @@ def get_rag_chain():
     
     # 7. GEÇMİŞ HATIRLAYICI (Yine Yardımcı Hızlı Beyin kullanılıyor)
     contextualize_q_system_prompt = (
-        "Sohbet geçmişine ve kullanıcının en son sorusuna bak. "
-        "Eğer kullanıcı eksik bir soru sormuşsa (örneğin 'peki bu madde nedir?', 'şartları neler?' gibi), "
-        "geçmişteki konuyu kullanarak bu soruyu tek başına anlaşılabilecek bağımsız bir soruya dönüştür. "
-        "DİKKAT: Bu aşamada soruyu KESİNLİKLE cevaplama, sadece yeniden yazıp bırak."
+        """Sen bir soru düzenleme asistanısın. 
+Aşağıdaki sohbet geçmişini ve kullanıcının en son sorusunu incele.
+Eğer kullanıcının son sorusu önceki sohbetle bağlantılıysa, bu soruyu sohbet geçmişi olmadan da anlaşılabilecek bağımsız ve tek bir soru cümlesi haline getir.
+Soruyu cevaplama, sadece yeniden formüle et.
+
+ÇOK ÖNEMLİ KURALLAR:
+1. KESİNLİKLE boş bir metin ("") veya sadece boşluk döndürme.
+2. Eğer soru zaten tek başına anlaşılabiliyorsa, orijinal soruyu birebir aynı şekilde geri döndür.
+3. Asla açıklamada bulunma, sadece soruyu ver."""
     )
     
     contextualize_q_prompt = ChatPromptTemplate.from_messages([

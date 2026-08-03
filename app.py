@@ -145,7 +145,7 @@ with top_col3:
         st.rerun()
 
 # --- ANA EKRAN BAŞLIKLARI ---
-st.markdown("<h2 style='text-align: center; color: #ffffff;'>⚖️ Hukuk Asistanı</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align: center; color: #ffffff;'>⚖️ Tüketici Hakları Asistanı</h2>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: #9ca3af;'>Tüketici mevzuatıyla ilgili sorularınızı sorabilirsiniz.</p>", unsafe_allow_html=True)
 st.write("") 
 
