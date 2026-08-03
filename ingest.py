@@ -1,33 +1,32 @@
 import os
 import re
 import warnings
+import time
 
 # Terminali kirleten o sarı uyarıyı (DeprecationWarning) tamamen susturuyoruz.
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 from langchain_community.document_loaders import PyPDFDirectoryLoader
 from langchain_core.documents import Document
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_google_genai import GoogleGenerativeAIEmbeddings # YENİ: Google Embeddings
 from langchain_chroma import Chroma
 from tqdm import tqdm
-from config import DOCS_DIR, EMBEDDING_MODEL, CHROMA_DB_DIR
-
-
+from config import DOCS_DIR, CHROMA_DB_DIR # EMBEDDING_MODEL config'den kaldırılabilir
 
 def ingest_document(file_path):
     print(f"Belgeler okunuyor: {file_path}")
     loader = PyPDFDirectoryLoader(file_path)
     pages = loader.load()
     
-    file_contents = {} # Dosya içerikleri
+    file_contents = {}
     for page in pages:
-        source = page.metadata.get('source', "Bilinmeyen_kaynak") # Metadata'dan kaynak çekmeyi deniyoruz. Kaynak yoksa Bilinmeyen_kaynak atanıyor
+        source = page.metadata.get('source', "Bilinmeyen_kaynak")
         if source not in file_contents:
             file_contents[source] = ""
         file_contents[source] += page.page_content + "\n"
         
     documents = []
-    for source, full_text in file_contents.items(): # Dict'deki kaynak ve tam metni regex sayesinde maddeler halinde bölüyoruz.
+    for source, full_text in file_contents.items():
         clauses = re.split(r'(?i)(?=MADDE\s+\d+)', full_text)
         for clause in clauses:
             if len(clause.strip()) > 20:
@@ -40,14 +39,16 @@ def ingest_document(file_path):
                 
     return documents
 
-def prepare_database(): # Veritabanına yazacak
-    documents = ingest_document(DOCS_DIR) # Yazdığımız fonksiyonu çağırıyoruz.
+def prepare_database():
+    documents = ingest_document(DOCS_DIR)
     
     if not documents:
         print("Hata: Klasörde okunacak PDF yok veya maddeler ayrılamadı!")
         return
     
-    embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+    print("Google Embeddings ile vektörleştirme başlatılıyor...")
+    # YENİ: Google AI Studio'nun en güçlü metin anlama modeli
+    embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
     
     vector_database = Chroma(
         persist_directory=CHROMA_DB_DIR,
@@ -55,10 +56,11 @@ def prepare_database(): # Veritabanına yazacak
     )
     
     batch_size = 50
-    
     for i in tqdm(range(0, len(documents), batch_size), desc="Vektörler işleniyor", unit="batch"):
         batch = documents[i:i + batch_size]
         vector_database.add_documents(batch)
+        
+        time.sleep(0.5) # Google API limitlerini aşmamak için kısa bir bekleme
         
     print(f"\nBaşarılı: Vektörleştirme tamamlandı. Veriler {CHROMA_DB_DIR} dizinine kaydedildi.")
     

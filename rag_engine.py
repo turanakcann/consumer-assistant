@@ -1,5 +1,5 @@
 from langchain_chroma import Chroma
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI # YENİ: Google Modelleri
 from langchain_groq import ChatGroq
 from langchain_classic.chains import create_retrieval_chain
 from langchain_classic.chains.history_aware_retriever import create_history_aware_retriever
@@ -8,40 +8,47 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_classic.retrievers.multi_query import MultiQueryRetriever
 from langchain_classic.retrievers import ContextualCompressionRetriever
 from langchain_classic.retrievers.document_compressors import EmbeddingsFilter
-from config import CHROMA_DB_DIR, EMBEDDING_MODEL, LLM_MODEL, GROQ_API_KEY
+from config import CHROMA_DB_DIR, LLM_MODEL, GROQ_API_KEY
 
 def get_rag_chain():
-    embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL, 
-                                       model_kwargs={'device':'cuda'})
-    
+    # 1. VERİTABANI BAĞLANTISI (Google Embeddings ile)
+    embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
     vector_database = Chroma(
         persist_directory=CHROMA_DB_DIR,
         embedding_function=embeddings
     )
     
-    llm = ChatGroq(
+    # 2. ANA BEYİN: Hukuki yorumlamayı yapacak ağır top (Groq Llama 3.3)
+    main_llm = ChatGroq(
         model_name=LLM_MODEL,
         groq_api_key=GROQ_API_KEY,
         temperature=0.0
     )
+
+    # 3. YARDIMCI BEYİN: Sadece soruyu çoğaltmak ve geçmişi taramak için hızlı/ücretsiz model
+    fast_llm = ChatGoogleGenerativeAI(model="gemini-3.1-flash-lite", temperature=0.0)
     
+    # 4. ARAMA MOTORU (MMR) - Google Embeddings hassas olduğu için havuzu genişlettik (fetch_k=30)
     base_retriever = vector_database.as_retriever(
         search_type="mmr", 
-        search_kwargs={"k":5, "fetch_k":20}
-        )
-    
-    retriever = MultiQueryRetriever.from_llm(
-        retriever=base_retriever,
-        llm=llm
+        search_kwargs={"k": 7, "fetch_k": 30}
     )
     
-    """embeddings_filter = EmbeddingsFilter(embeddings=embeddings, similarity_threshold=0.60)
+    # 5. ÇOKLU SORGU ÜRETİCİ (Yardımcı Hızlı Beyin kullanılıyor, limit yememek için)
+    mq_retriever = MultiQueryRetriever.from_llm(
+        retriever=base_retriever,
+        llm=fast_llm 
+    )
     
+    # 6. SIKIŞTIRICI VE FİLTRE (Geri Açıldı ve Kalibre Edildi)
+    # Google'ın vektörleri çok daha isabetli olduğu için 0.65 barajı mükemmel çalışır.
+    embeddings_filter = EmbeddingsFilter(embeddings=embeddings, similarity_threshold=0.65)
     retriever = ContextualCompressionRetriever(
         base_compressor=embeddings_filter,
         base_retriever=mq_retriever
-    )"""
+    )
     
+    # 7. GEÇMİŞ HATIRLAYICI (Yine Yardımcı Hızlı Beyin kullanılıyor)
     contextualize_q_system_prompt = (
         "Sohbet geçmişine ve kullanıcının en son sorusuna bak. "
         "Eğer kullanıcı eksik bir soru sormuşsa (örneğin 'peki bu madde nedir?', 'şartları neler?' gibi), "
@@ -51,12 +58,13 @@ def get_rag_chain():
     
     contextualize_q_prompt = ChatPromptTemplate.from_messages([
         ("system", contextualize_q_system_prompt),
-        MessagesPlaceholder("chat_history"), # Geçmiş mesajlar buraya gelecek
+        MessagesPlaceholder("chat_history"), 
         ("human", "{input}")
     ])
     
-    history_aware_retriever = create_history_aware_retriever(llm, retriever, contextualize_q_prompt)
+    history_aware_retriever = create_history_aware_retriever(fast_llm, retriever, contextualize_q_prompt)
     
+    # 8. NİHAİ CEVAP ÜRETİCİ (Ana Beyin olan Llama 3.3 kullanılıyor)
     qa_system_prompt = (
         "Sen profesyonel, tarafsız ve sadece Tüketici Mevzuatına göre çalışan bir Tüketici Hakları asistanısın. "
         "YANITLARINI KESİNLİKLE VE SADECE TÜRKÇE VER. Farklı diller, alfabeler veya uydurma kelimeler kullanma.\n\n"
@@ -82,7 +90,8 @@ def get_rag_chain():
         ("human", "{input}")
     ])
     
-    question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
+    # CEVABI LLAMA 3.3 VERECEK
+    question_answer_chain = create_stuff_documents_chain(main_llm, qa_prompt)
     
     rag_chain = create_retrieval_chain(
         history_aware_retriever,

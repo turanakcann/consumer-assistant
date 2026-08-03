@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  consumer-assistant:
+    build: .
+    container_name: consumer_rag_assistant
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    volumes:
+      # ChromaDB'nin konteyner kapansa bile silinmemesi için kalıcı birime (volume) bağlıyoruz
+      - ./chroma_db:/app/chroma_db
+      # İsteğe bağlı: Dökümanları canlı güncellemek istersen docs klasörünü de bağlayabilirsin
+      - ./docs:/app/docs
+    restart: unless-stopped
