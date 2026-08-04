@@ -1,7 +1,40 @@
 import streamlit as st
 import time
+import re
 from langchain_core.messages import HumanMessage, AIMessage
 from rag_engine import get_rag_chain
+
+ENGLISH_TO_TURKISH = {
+    "next step": "sonraki adım",
+    "next steps": "sonraki adımlar",
+    "complete": "tamamla",
+    "possible": "mümkün",
+    "please": "lütfen",
+    "order": "sipariş",
+    "refund": "iade",
+    "credit": "kredi",
+    "product": "ürün",
+    "step": "adım",
+    "delivery": "teslim",
+    "warranty": "garanti",
+    "contract": "sözleşme",
+    "bank": "banka",
+    "issue": "sorun",
+}
+
+def agent_alpha(raw_input: str) -> str:
+    if not raw_input or not raw_input.strip():
+        raise ValueError("Lütfen boş olmayan bir soru girin.")
+
+    cleaned = raw_input.strip()
+    for eng, tr in ENGLISH_TO_TURKISH.items():
+        cleaned = re.sub(rf"\b{re.escape(eng)}\b", tr, cleaned, flags=re.IGNORECASE)
+
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    if not cleaned:
+        raise ValueError("Sorgunuz geçersiz. Lütfen daha fazla Türkçe açıklama içeren bir soru yazın.")
+
+    return cleaned
 
 # --- SAYFA AYARLARI ---
 st.set_page_config(
@@ -50,7 +83,7 @@ st.markdown("""
         backdrop-filter: blur(10px);
     }
     
-    /* 6. ALT KISIM (INPUT ARKASI) ŞEFFAFLIK */
+    /* 6. ALT KISIM (INPUT ARKASI) ŞEFFAFLIK VE INPUT BOYUTLANDIRMA */
     [data-testid="stBottom"] {
         background: transparent !important;
     }
@@ -58,18 +91,38 @@ st.markdown("""
         background: transparent !important;
     }
     
-    /* Input Alanı */
+    /* Input (Sohbet Kutusu) Genişletme ve Hizalama */
     .stChatInputContainer {
-        padding-bottom: 20px !important;
+        padding-bottom: 30px !important;
+        max-width: 750px !important;
+        margin: 0 auto !important;
     }
     .stChatInputContainer textarea {
+        width: 100% !important;
         background-color: #111827 !important;
         color: white !important;
         border: 1px solid #374151 !important;
         border-radius: 15px !important;
     }
+
+    /* Input Kutusunun Altına Sabitlenen Uyarı Balonu */
+    .warning-balloon {
+        position: fixed;
+        bottom: 8px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 999;
+        padding: 4px 16px;
+        background: rgba(248, 196, 35, 0.12);
+        border: 1px solid rgba(249, 115, 22, 0.35);
+        color: #f8b204;
+        border-radius: 10px;
+        text-align: center;
+        font-size: 0.8rem;
+        pointer-events: none;
+    }
     
-    /* Buton Tasarımları (Yazıların sığması için genişletildi) */
+    /* Buton Tasarımları */
     .stButton button {
         background-color: rgba(59, 130, 246, 0.2) !important;
         border: 1px solid rgba(59, 130, 246, 0.5) !important;
@@ -89,6 +142,7 @@ st.markdown("""
     .block-container {
         max-width: 800px !important;
         padding-top: 2rem !important;
+        padding-bottom: 5rem !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -160,7 +214,16 @@ for message in st.session_state.messages:
 
 # --- KULLANICI GİRİŞİ VE CEVAP ÜRETİMİ ---
 if prompt := st.chat_input("Bana soru sorabilirsin..."):
-    
+    if not prompt.strip():
+        st.warning("Lütfen geçerli bir soru girin.")
+        st.stop()
+
+    try:
+        sanitized_prompt = agent_alpha(prompt)
+    except ValueError as ve:
+        st.warning(str(ve))
+        st.stop()
+
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user", avatar="user"):
         st.markdown(prompt)
@@ -170,9 +233,10 @@ if prompt := st.chat_input("Bana soru sorabilirsin..."):
             start_time = time.time()
             
             try:
+                short_history = st.session_state.chat_history[-6:]
                 response = rag_chain.invoke({
-                    "input": prompt,
-                    "chat_history": st.session_state.chat_history
+                    "input": sanitized_prompt,
+                    "chat_history": short_history
                 })
                 
                 answer = response["answer"]
@@ -187,5 +251,6 @@ if prompt := st.chat_input("Bana soru sorabilirsin..."):
                     AIMessage(content=answer)
                 ])
                 
-            except Exception as e:
-                st.error(f"Bir hata oluştu: {str(e)}")
+            except Exception:
+                st.error("Sistemde geçici bir bağlantı veya model hatası oluştu. Lütfen tekrar deneyiniz.")
+st.markdown("<div class='warning-balloon'>Üretken yapay zeka hata yapabilir.</div>", unsafe_allow_html=True)

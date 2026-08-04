@@ -7,6 +7,7 @@ from langchain_classic.chains.combine_documents import create_stuff_documents_ch
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_classic.retrievers import ContextualCompressionRetriever
 from langchain_classic.retrievers.document_compressors import EmbeddingsFilter
+import re
 from typing import List
 from config import CHROMA_DB_DIR, LLM_MODEL, GROQ_API_KEY
 
@@ -19,6 +20,41 @@ class SafeGoogleEmbeddings(GoogleGenerativeAIEmbeddings):
     def embed_query(self, text: str) -> List[float]:
         safe_text = text if text and text.strip() else "tüketici"
         return super().embed_query(safe_text)
+
+ENGLISH_TO_TURKISH = {
+    "next step": "sonraki adım",
+    "next steps": "sonraki adımlar",
+    "complete": "tamamla",
+    "possible": "mümkün",
+    "please": "lütfen",
+    "order": "sipariş",
+    "refund": "iade",
+    "credit": "kredi",
+    "product": "ürün",
+    "step": "adım",
+    "delivery": "teslim",
+    "warranty": "garanti",
+    "contract": "sözleşme",
+    "bank": "banka",
+    "issue": "sorun",
+}
+
+
+def agent_alpha(raw_input: str) -> str:
+    """Agent Alpha: Router & Sanitizer. Boş sorguları engeller ve plaza/İngilizce sızıntıları temizler."""
+    if not raw_input or not raw_input.strip():
+        raise ValueError("Lütfen boş olmayan bir soru girin.")
+
+    cleaned = raw_input.strip()
+    for eng, tr in ENGLISH_TO_TURKISH.items():
+        cleaned = re.sub(rf"\b{re.escape(eng)}\b", tr, cleaned, flags=re.IGNORECASE)
+
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    if not cleaned:
+        raise ValueError("Sorgunuz geçersiz. Lütfen daha fazla Türkçe açıklama içeren bir soru yazın.")
+
+    return cleaned
+
 
 def get_rag_chain():
     # 1. VERİTABANI BAĞLANTISI (Doğru Google Embedding Modeli)
@@ -40,11 +76,11 @@ def get_rag_chain():
     
     # 4. ARAMA MOTORU (MMR)
     base_retriever = vector_database.as_retriever(
-        search_type="mmr", 
-        search_kwargs={"k": 7, "fetch_k": 30}
+        search_type="mmr",
+        search_kwargs={"k": 5, "fetch_k": 20}
     )
     
-    # MULTI-QUERY RETRIEVER KALDIRILDI! 
+    # MULTI-QUERY RETRIEVER KALDIRILDI!
     # (API'yi spamlattığı ve 500 INTERNAL hatasına yol açtığı için iptal edildi)
     
     # 5. SIKIŞTIRICI VE FİLTRE
@@ -83,6 +119,10 @@ def get_rag_chain():
         - Sen bir hukuk ve danışmanlık asistanısın. Asla kendini tüketici yerine koyma (Örn: "Hakem heyetine başvuramam" YANLIŞ, "Hakem heyetine başvuramazsınız" DOĞRU).
         - Yanıtlarını doğrudan kullanıcıya hitap ederek ("Siz" veya "Sen" diliyle) ve kendi adına ("yardımcı olabilirim", "aktarabilirim") ver.
         - KESİNLİKLE VE SADECE TÜRKÇE (Latin Alfabesi) kullan. Yabancı dil veya farklı alfabe kullanımı kesinlikle yasaktır.
+        - Kullanıcı sorusunda İngilizce, plaza dili veya yabancı kelimeler (örn: complete, possible, next step) kullansa dahi, sen KESİNLİKLE bu kelimeleri yanıtında tekrar etmeyeceksin. Bütün yanıtın %100 arı Türkçe ve Latin alfabesi olacaktır.
+        - Kullanıcı bir ürünün üzerine isim, harf, fotoğraf basıldığını veya kişiye özel üretildiğini belirtiyorsa (Örn: İsme özel kolye, baskılı kupa), bu 'Kişiye Özel Ürün' istisnasıdır. Bu ürünlerde 14 günlük CAYMA HAKKI YOKTUR. Satıcının iade almaması YASALDIR. 'İade edebilirsiniz' deme!
+        - Kullanıcı 'mağazanın anlaştığı banka', 'alışveriş kredisi' veya 'mağazada çekilen kredi' ile ayıplı/hasarlı mal aldığını söylerse; bu 'Bağlı Kredi'dir. Banka 'bu bizim sorunumuz değil' diyemez. Satıcı ve banka müteselsilen (ortaklaşa) sorumludur.
+        - Sen bir asistansın. Yanıtlarında asla kullanıcı rolüne girme. 'Siz' dili kullan. 'Next step' veya başlık atarken 'Seçenekleriniz ve Sonraki Adımlarınız:' şeklinde Türkçe başlıklar kullan.
         
         BİLGİ İŞLEME VE SINIRLAR (SIFIR HALÜSİNASYON KALKANI):
         - Yanıtını SADECE sana sağlanan "Bağlam (Context)" metnine dayandır.
