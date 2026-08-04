@@ -101,7 +101,7 @@ def show_guide():
     Bu asistan, **6502 sayılı Tüketici'nin Korunması Hakkında Kanun** ve ilgili 28 yönetmeliği temel alarak geliştirilmiş bir yapay zeka (RAG) uygulamasıdır.
     
     #### 🧠 Sistem Mimarisi
-    * **Google Embeddings:** `gemini-embedding-001` modeli ile hukuki metinlerin anlamsal eşleştirmesi.
+    * **Google Embeddings:** `gemini-embedding-2` modeli ile hukuki metinlerin anlamsal eşleştirmesi.
     * **Llama 3.3 (Groq):** Hızlı ve yüksek doğruluklu nihai cevap üretimi.
     * **Sıfır Halüsinasyon:** Sistem sadece verilen hukuki dökümanlara bağlı kalır, şahsi yorum yapmaz.
     
@@ -159,7 +159,7 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 # --- KULLANICI GİRİŞİ VE CEVAP ÜRETİMİ ---
-if prompt := st.chat_input("Ask me anything..."):
+if prompt := st.chat_input("Bana soru sorabilirsin..."):
     
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user", avatar="user"):
